@@ -1,6 +1,7 @@
 package com.gabriel.midi;
 import android.media.midi.MidiReceiver;
 import android.util.Log;
+import com.unity3d.player.UnityPlayer;
 
 public class Receiver extends MidiReceiver{
 
@@ -38,12 +39,14 @@ public class Receiver extends MidiReceiver{
     {
         // TODO return note pressed back to Unity somehow
         Log.v("Note Pressed", "Note pressed: " + note + ", Velocity: " + velocity );
+        UnityPlayer.UnitySendMessage("Plugin", "ReceiveMIDI", "On: " + note + " Velocity: " + velocity);
     }
 
     private void onNoteReleased(int note)
     {
         // TODO return note released back to Unity somehow
         Log.v("Note Released", "Note released: " + note);
+        UnityPlayer.UnitySendMessage("Plugin", "ReceiveMIDI", "Off: " + note + " Velocity: " + 0);
     }
 
 }
