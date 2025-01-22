@@ -2,51 +2,50 @@ package com.gabriel.midi;
 import android.media.midi.MidiReceiver;
 import android.util.Log;
 import com.unity3d.player.UnityPlayer;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class Receiver extends MidiReceiver{
+    private static final BlockingQueue<byte[]> dataQueue = new LinkedBlockingQueue<>();
 
-    public void onSend(byte[] msg, int offset, int count, long timestamp)
+    public void onSend(byte[] msg, int offset, int count, long timestamp) //put the message into a queue to minimize listener's usage time
     {
-        processMidiData(msg, count);
+        Log.v("Midi Received", "Byte data | " + msg[0] + " | " + msg[1] + " | " + msg[2] + " | " + msg[3] + " | " + msg[4] + " | " + msg[5]
+                + " | " + msg[6] + " | " + msg[7] + " | " + msg[8] + " | " + msg[9]); // the whole byte[] is 1024, but the relevant indexes stop after index 50 in the worst scenario
+        dataQueue.add(msg);
     }
 
-    void processMidiData(byte[] data, int count)
+    public void processMidiData()
     {
-        if (count > 0) {
-            Log.v("Databytes Received","Byte data | " + data[0] + " | " + data[1] + " | " + data[2] + " | " + data[3] + " | " + data[4] + " | " + data[5]);
-            int type = data[1]; // Message type, from my testing, -112 means a it's a note on/off message
-            int note = data[2]; // MIDI note number (60 = middle C /C3)
-            int velocity = data[3]; // Velocity of the note, can values range 0-127
+        int byteIndex = 1;
+        byte[] data = dataQueue.poll();
+        while (data != null && data[byteIndex] == -112)
+        {
+            Log.v("On/Off Received", "Byte data | "  + data[byteIndex] + " | " + data[byteIndex + 1] + " | " + data[byteIndex + 2]);
+            int note = data[byteIndex + 1]; // MIDI note number (60 = middle C /C3)
+            int velocity = data[byteIndex + 2]; // Velocity of the note, values range 0-127
 
-            if (type == -112) // A note message is received
+            if (velocity > 0) // A key was pressed (velocity > 0)
             {
-                Log.v("Midi Received", "Byte data | " + data[0] + " | " + data[1] + " | " + data[2] + " | " + data[3] + " | " + data[4] + " | " + data[5]);
-
-                if (velocity > 0) // A key was pressed (velocity > 0)
-                {
-                    onNotePressed(note, velocity);
-                }
-
-                else  // A key was released (velocity == 0)
-                {
-                    onNoteReleased(note);
-                }
+                onNotePressed(note, velocity);
             }
+            else  // A key was released (velocity == 0)
+            {
+                onNoteReleased(note);
+            }
+            byteIndex += 3;
         }
     }
 
     private void onNotePressed(int note, int velocity)
     {
-        // TODO return note pressed back to Unity somehow
         Log.v("Note Pressed", "Note pressed: " + note + ", Velocity: " + velocity );
         UnityPlayer.UnitySendMessage("Plugin", "ReceiveMIDI", "On: " + note + " Velocity: " + velocity);
     }
 
     private void onNoteReleased(int note)
     {
-        // TODO return note released back to Unity somehow
         Log.v("Note Released", "Note released: " + note);
         UnityPlayer.UnitySendMessage("Plugin", "ReceiveMIDI", "Off: " + note + " Velocity: " + 0);
     }
-
 }

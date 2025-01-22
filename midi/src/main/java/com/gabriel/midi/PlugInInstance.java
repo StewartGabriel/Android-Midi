@@ -1,13 +1,14 @@
 package com.gabriel.midi;
 import android.app.Activity;
 import android.content.Context;
-import android.media.midi.*;
+import android.media.midi.*; //Not too sure which things I'll need in the future, so I'm including them all for now, also it's cleaner
 import android.content.pm.PackageManager;
 import android.util.Log;
 
+
 public class PlugInInstance {
 
-    private static Activity unityActivity; //This doesn't work unless it is static, so I'm just ignoring this leak for now
+    private static Activity unityActivity; //THIS NEEDS TO BE KEPT STATIC FOR UNITY TO BE ABLE TO USE IT, IGNORE THE MEMORY LEAK
     private MidiManager midiManager;
 
     public static void receiveUnityActivity(Activity tActivity) //For the device to know it should only be aware of Unity
@@ -27,7 +28,7 @@ public class PlugInInstance {
         }
     }
 
-    public void createPort() {
+    public void createPort() { // Connect to the midi device
         if (midiManager.getDevices().length != 0) {
             Log.v("Create Port", "Attempting to create port...");
             Log.v("Devices Connected", midiManager.getDevices()[0].toString());
@@ -56,11 +57,26 @@ public class PlugInInstance {
         }, null);
     }
 
-    private void listenToMidiMessages(MidiOutputPort outputPort) {
+    private void listenToMidiMessages(MidiOutputPort outputPort) { // Parallel processing to receive and interpret midi messages
         Receiver receiver = new Receiver(); // Custom Receiver class, extends MidiReceiver
-        new Thread(() -> { // Thread to listen for MIDI events
-            outputPort.connect(receiver);
-        }).start();
+//        ExecutorService listenerPool = Executors.newFixedThreadPool(4);
+//        for (int i = 0; i < 4; i++)
+//        {
+        Thread listener = new Thread(() -> outputPort.connect(receiver));
+        listener.setPriority(Thread.MAX_PRIORITY);
+
+//            listenerPool.execute(listener);
+//        }
+
+        Thread processor = new Thread(() -> {
+            while(true)
+            {
+                receiver.processMidiData();
+            }
+        });
+        processor.setPriority(Thread.MAX_PRIORITY - 1);
+        listener.start();
+        processor.start();
     }
 
 
